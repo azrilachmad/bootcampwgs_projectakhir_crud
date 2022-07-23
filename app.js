@@ -256,8 +256,16 @@ app.post("/users/addUser", checkNotAuthenticated, async (req, res) => {
 });
 
 app.post("/users/item-list/add", checkNotAuthenticated, upload.array('img', 1), async (req, res) => {
-  const { item_name, category, price, quantity,} = req.body;
-  const img  = req.files[0].filename
+  let img  
+  if (!req.files.find(e => e.filename)){
+    img = 'default.jpg'
+  }else{
+    img  = req.files[0].filename
+  }
+  const item_name = req.body.item_name
+  const category = req.body.category 
+  const price = req.body.price
+  const quantity = req.body.quantity 
   console.log({
     item_name,
     category,
@@ -330,6 +338,108 @@ app.post("/users/item-list/add", checkNotAuthenticated, upload.array('img', 1), 
     );
   }
 });
+
+
+
+// Edit data product
+app.get("/users/item-list/edit/:item_name", (req, res) => {
+  const sql = `SELECT * FROM items where item_name = '${req.params.item_name}'`;
+  pool.query(sql, (err, result) => {
+    if (err) {
+      return console.error(err.message);
+    }
+    res.render("item-edit", {
+      title: "Edit Data Product",
+      layout: "layouts/main-layout",
+      model: result.rows[0],
+    });
+  });
+});
+
+
+app.post("/users/item-list/update", checkNotAuthenticated, upload.array('img', 1), async (req, res) => {
+  let img  
+  if (!req.files.find (e => e.filename)){
+    img = 'default.jpg'
+  }else{
+    img  = req.files[0].filename
+  }
+  const item_name = req.body.item_name
+  const category = req.body.category 
+  const price = req.body.price
+  const quantity = req.body.quantity 
+  const oldName = req.body.oldName
+  console.log({
+    oldName,
+    item_name,
+    category,
+    price,
+    quantity,
+    img
+  });
+
+  const errors = [];
+
+  
+  if (img === undefined) {
+    errors.push({ message: "Please insert an image" });
+  }
+  if (category === undefined) {
+    errors.push({ message: "Please select a category" });
+  }
+
+  if (quantity < 0 || quantity === "") {
+    errors.push({ message: "Invalid amount of quantity" });
+  }
+
+  if (price < 0 || quantity === "") {
+    errors.push({ message: "Invalid amount of price" });
+  }
+
+  if (errors.length > 0) {
+    res.render("add-item", {
+      errors,
+      layout: "layouts/main-layout",
+      title: "Add Item",
+      params: req.body,
+    });
+  } else {
+    pool.query(
+      `SELECT * FROM items WHERE item_name = $1`,
+      [item_name],
+      (err, results) => {
+        if (err) {
+          throw err;
+        }
+        console.log(results.rows);
+
+        if (results.rows.length > 0) {
+          errors.push({ message: "Product name already exists" });
+          res.render("add-item", {
+            errors, 
+            layout: "layouts/main-layout",
+            title: "Add Item",
+            params: req.body,
+          });
+        } else {
+          const product = item_name
+          pool.query(
+            `UPDATE items SET item_name = '${product}', category = '${category}', price = '${price}', quantity = '${quantity}', item_image = '${img}' WHERE item_name='${oldName}'; `,
+            (err, results) => {
+              if (err) {
+                throw err;
+              }
+              console.log(results.rows);
+              req.flash("success", "Successfully create a product");
+              res.redirect("/users/item-list");
+            }
+          );
+        }
+      }
+    );
+  }
+});
+
 
 
 // Delete Product 
